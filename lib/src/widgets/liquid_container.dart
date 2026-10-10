@@ -6,6 +6,7 @@ import '../core/liquid_theme.dart';
 import '../physics/liquid_physics.dart';
 import '../core/liquid_controller.dart';
 import '../rendering/liquid_painter.dart';
+import '../rendering/shader_manager.dart';
 import '../animation/shape_morpher.dart';
 
 /// A container that renders with a liquid glass aesthetic and physics-based interaction.
@@ -50,9 +51,13 @@ class _LiquidContainerState extends State<LiquidContainer> with TickerProviderSt
   SpringSimulation? _springSimulationX;
   SpringSimulation? _springSimulationY;
 
+  FragmentShader? _fragmentShader;
+
   @override
   void initState() {
     super.initState();
+
+    _initShader();
     _currentShape = widget.shape;
     _previousShape = widget.shape;
     
@@ -74,9 +79,32 @@ class _LiquidContainerState extends State<LiquidContainer> with TickerProviderSt
     });
   }
 
+  
+  Future<void> _initShader() async {
+    final glass = widget.glass ?? const LiquidGlass();
+    if (!glass.enableShaders) return;
+
+    await ShaderManager.loadLiquidGlassShader();
+    
+    if (mounted) {
+      setState(() {
+        _fragmentShader = ShaderManager.createLiquidGlassShader();
+      });
+    }
+  }
+
   @override
   void didUpdateWidget(LiquidContainer oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (widget.glass?.enableShaders != oldWidget.glass?.enableShaders) {
+      if (widget.glass?.enableShaders == true) {
+        _initShader();
+      } else {
+        _fragmentShader?.dispose();
+        _fragmentShader = null;
+      }
+    }
     if (oldWidget.shape != widget.shape) {
       _previousShape = _currentShape;
       _currentShape = widget.shape;
@@ -87,6 +115,8 @@ class _LiquidContainerState extends State<LiquidContainer> with TickerProviderSt
   @override
   void dispose() {
     _morphController.dispose();
+
+    _fragmentShader?.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -168,6 +198,7 @@ class _LiquidContainerState extends State<LiquidContainer> with TickerProviderSt
               t: t,
               glass: effectiveGlass,
               dragOffset: dragOffset,
+              shader: _fragmentShader,
             ),
             child: Transform.translate(
               offset: dragOffset * 0.5,
