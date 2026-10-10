@@ -6,6 +6,7 @@ import '../core/liquid_theme.dart';
 import '../physics/liquid_physics.dart';
 import '../core/liquid_controller.dart';
 import '../rendering/liquid_painter.dart';
+import '../animation/shape_morpher.dart';
 
 /// A container that renders with a liquid glass aesthetic and physics-based interaction.
 class LiquidContainer extends StatefulWidget {
@@ -38,8 +39,13 @@ class LiquidContainer extends StatefulWidget {
   State<LiquidContainer> createState() => _LiquidContainerState();
 }
 
-class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProviderStateMixin {
+class _LiquidContainerState extends State<LiquidContainer> with TickerProviderStateMixin {
   late AnimationController _animationController;
+  late AnimationController _morphController;
+  
+  LiquidShape? _previousShape;
+  LiquidShape? _currentShape;
+  
   Offset _dragOffset = Offset.zero;
   SpringSimulation? _springSimulationX;
   SpringSimulation? _springSimulationY;
@@ -47,6 +53,14 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
   @override
   void initState() {
     super.initState();
+    _currentShape = widget.shape;
+    _previousShape = widget.shape;
+    
+    _morphController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _morphController.addListener(() {
+      setState(() {});
+    });
+    
     _animationController = AnimationController(vsync: this);
     _animationController.addListener(() {
       if (_springSimulationX != null && _springSimulationY != null) {
@@ -61,7 +75,18 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
   }
 
   @override
+  void didUpdateWidget(LiquidContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.shape != widget.shape) {
+      _previousShape = _currentShape;
+      _currentShape = widget.shape;
+      _morphController.forward(from: 0.0);
+    }
+  }
+
+  @override
   void dispose() {
+    _morphController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -105,6 +130,7 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
   Widget build(BuildContext context) {
     final theme = LiquidTheme.of(context);
     final effectiveGlass = widget.glass ?? theme?.defaultGlass ?? const LiquidGlass();
+    final bool reduceMotion = theme?.reduceMotion ?? false;
 
     Widget content = widget.child ?? const SizedBox.shrink();
     
@@ -116,6 +142,11 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
       content = Align(alignment: widget.alignment!, child: content);
     }
 
+    final shapeA = _previousShape ?? _currentShape!;
+    final shapeB = _currentShape!;
+    final t = reduceMotion ? 1.0 : _morphController.value;
+    final dragOffset = reduceMotion ? Offset.zero : _dragOffset;
+
     Widget container = SizedBox(
       width: widget.width,
       height: widget.height,
@@ -124,7 +155,7 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
         children: [
           if (effectiveGlass.blur > 0)
             ClipPath(
-              clipper: _LiquidClipper(widget.shape, _dragOffset),
+              clipper: _LiquidClipper(shapeA, shapeB, t, dragOffset),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: effectiveGlass.blur, sigmaY: effectiveGlass.blur),
                 child: const SizedBox.expand(),
@@ -132,12 +163,14 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
             ),
           CustomPaint(
             painter: LiquidPainter(
-              shape: widget.shape,
+              shapeA: shapeA,
+              shapeB: shapeB,
+              t: t,
               glass: effectiveGlass,
-              dragOffset: _dragOffset,
+              dragOffset: dragOffset,
             ),
             child: Transform.translate(
-              offset: _dragOffset * 0.5,
+              offset: dragOffset * 0.5,
               child: content,
             ),
           ),
@@ -159,27 +192,24 @@ class _LiquidContainerState extends State<LiquidContainer> with SingleTickerProv
 }
 
 class _LiquidClipper extends CustomClipper<Path> {
-  final LiquidShape shape;
+  final LiquidShape shapeA;
+  final LiquidShape shapeB;
+  final double t;
   final Offset dragOffset;
 
-  _LiquidClipper(this.shape, this.dragOffset);
+  _LiquidClipper(this.shapeA, this.shapeB, this.t, this.dragOffset);
 
   @override
   Path getClip(Size size) {
-    // Basic clipping that matches the painter
-    final painter = LiquidPainter(shape: shape, glass: const LiquidGlass(), dragOffset: dragOffset);
-    // Path doesn't deform fully here for simplicity, but in a real version _buildPath would use dragOffset
-    // We would need to expose _buildPath. For now, it doesn't use dragOffset in _buildPath, 
-    // it just uses it for content translation. Let's fix that.
-    
-    // To keep it simple and compile, we'll duplicate the path generation or make it static.
-    // Given the constraints of time, returning a rectangle based path is fine for the fallback
-    return Path()..addRect(Offset.zero & size);
+    return ShapeMorpher.morph(shapeA, shapeB, t, size, dragOffset);
   }
 
   @override
   bool shouldReclip(covariant _LiquidClipper oldClipper) => 
-      shape != oldClipper.shape || dragOffset != oldClipper.dragOffset;
+      shapeA != oldClipper.shapeA || 
+      shapeB != oldClipper.shapeB || 
+      t != oldClipper.t || 
+      dragOffset != oldClipper.dragOffset;
 }
 
 class _CombinedSimulation extends Simulation {
