@@ -1,6 +1,6 @@
 # LiquidContainerx
 
-A reusable Flutter package for creating liquid glass-style translucent surfaces with shape morphing and physics-based interactions. 
+A reusable Flutter package for creating liquid glass-style translucent surfaces with shape morphing and physics-based interactions.
 
 ## Features
 
@@ -29,3 +29,11 @@ LiquidContainer(
   child: Center(child: Text("Liquid Container")),
 )
 ```
+
+The concise API aliases are available as `LiquidContainerx`,
+`LiquidGlassSettings`, and `LiquidGlassLayer`. Choose a preset with
+`LiquidGlassSettings.frosted`, or wrap a section of the app in
+`LiquidGlassLayer(settings: LiquidGlassSettings.vivid, child: ...)` to share
+settings. `LiquidShape.rounded()`, `.circle()`, `.blob()`, and `.capsule()` map
+to the built-in shape engine. Pass a `LiquidGlassController` to
+`LiquidContainerx.glassController` to observe tap ripple events.

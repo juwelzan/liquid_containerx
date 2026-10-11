@@ -1,5 +1,5 @@
 name: liquid_containerx
-description: "A new Flutter project."
+description: "Liquid glass surfaces and interactive containers for Flutter."
 version: 0.0.1
 homepage:
 
@@ -55,3 +55,4 @@ flutter:
 
   shaders:
     - shaders/liquid_glass.frag
+    - shaders/liquid_blob.frag

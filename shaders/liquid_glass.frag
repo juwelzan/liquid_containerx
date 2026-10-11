@@ -8,41 +8,32 @@ out vec4 fragColor;
 uniform vec2 uSize;
 uniform float uDistortionStrength;
 uniform float uHighlightIntensity;
-uniform vec4 uTintColor; // R, G, B, A (pre-multiplied usually, but we will pass standard RGBA and multiply here if needed)
+uniform vec4 uTintColor; // R, G, B, A (not pre-multiplied passed from Dart)
 
 void main() {
     vec2 uv = FlutterFragCoord().xy / uSize;
     
-    // Simulate a subtle internal distortion or "wobble"
-    // Since we don't have a background texture, we create a fake caustics/specular effect
-    float wobbleX = sin(uv.y * 10.0) * uDistortionStrength;
-    float wobbleY = cos(uv.x * 10.0) * uDistortionStrength;
-    vec2 distortedUv = uv + vec2(wobbleX, wobbleY);
+    // iOS glass depth: Stronger diffuse highlight at the top-left to simulate light direction
+    float diagonal = clamp(1.0 - (uv.x + uv.y) * 0.5, 0.0, 1.0);
+    float specular = smoothstep(0.4, 1.0, diagonal);
     
-    // Generate a soft edge highlight
-    // Calculate distance from edges (0 at edges, 0.5 at center)
-    float distX = min(distortedUv.x, 1.0 - distortedUv.x);
-    float distY = min(distortedUv.y, 1.0 - distortedUv.y);
-    float edgeDist = min(distX, distY);
+    // Simulate glass thickness / edge volume
+    float edgeDistX = min(uv.x, 1.0 - uv.x);
+    float edgeDistY = min(uv.y, 1.0 - uv.y);
+    float minEdgeDist = min(edgeDistX, edgeDistY);
     
-    // Create a rim light effect (stronger near the edges, decaying inwards)
-    float rimLight = smoothstep(0.15, 0.0, edgeDist);
+    // Soft inner rim (glows more on the lighter side)
+    float rim = smoothstep(0.08, 0.0, minEdgeDist);
+    float directionalRim = rim * (diagonal * 0.8 + 0.2);
     
-    // Create a subtle top-left specular highlight
-    float specular = smoothstep(0.3, 0.0, length(distortedUv - vec2(0.2, 0.2)));
+    float totalHighlight = (directionalRim * 0.6 + specular * 0.5) * uHighlightIntensity;
     
-    float totalHighlight = (rimLight * 0.5 + specular) * uHighlightIntensity;
-    
-    // Base color
     vec3 baseColor = uTintColor.rgb;
-    
-    // Add highlight
     vec3 finalColor = baseColor + vec3(totalHighlight);
     
-    // Clamp to prevent blowout
     finalColor = clamp(finalColor, 0.0, 1.0);
-    
-    // Output pre-multiplied alpha
     float alpha = uTintColor.a;
+    
+    // Flutter expects pre-multiplied alpha
     fragColor = vec4(finalColor * alpha, alpha);
 }
