@@ -34,10 +34,12 @@ class LiquidGlassRenderer extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           // 1. Hardware backdrop blur & translucent backing
-          LiquidGlassBackdrop(
-            settings: settings,
-            shape: shape,
-            morphedPath: morphedPath,
+          Positioned.fill(
+            child: LiquidGlassBackdrop(
+              settings: settings,
+              shape: shape,
+              morphedPath: morphedPath,
+            ),
           ),
 
           // 2. Fragment shader / Fallback lighting pass

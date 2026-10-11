@@ -1,14 +1,15 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_container/src/core/liquid_glass_quality.dart';
 
 import '../core/liquid_glass_settings.dart';
 import '../shapes/liquid_glass_shape.dart';
 
 /// Custom clipper that derives its clipping path from a [LiquidGlassShape] or a morphed [Path].
 class LiquidGlassClipper extends CustomClipper<Path> {
-  const LiquidGlassClipper({required this.shape, this.morphedPath});
+  const LiquidGlassClipper({
+    required this.shape,
+    this.morphedPath,
+  });
 
   final LiquidGlassShape shape;
   final Path? morphedPath;
@@ -46,23 +47,19 @@ class LiquidGlassBackdrop extends StatelessWidget {
     final mediaQuery = MediaQuery.maybeOf(context);
     final reduceTransparency =
         mediaQuery?.accessibleNavigation == true ||
-        mediaQuery?.boldText == true ||
-        settings.quality.supportsNoiseDithering == false &&
-            settings.backgroundOpacity > 0.4;
+        mediaQuery?.boldText == true;
 
     final effectiveBlur = reduceTransparency ? 0.0 : settings.blur;
     final effectiveBackingOpacity = reduceTransparency
-        ? (settings.backgroundOpacity < 0.85
-              ? 0.85
-              : settings.backgroundOpacity)
+        ? (settings.backgroundOpacity < 0.85 ? 0.85 : settings.backgroundOpacity)
         : settings.backgroundOpacity;
 
-    Widget current = ClipPath(
+    return ClipPath(
       clipper: LiquidGlassClipper(shape: shape, morphedPath: morphedPath),
       child: Stack(
-        fit: StackFit.passthrough,
+        fit: StackFit.expand,
         children: [
-          // Background blur pass
+          // 1. Hardware background blur pass
           if (effectiveBlur > 0.0)
             BackdropFilter(
               filter: ImageFilter.blur(
@@ -72,20 +69,23 @@ class LiquidGlassBackdrop extends StatelessWidget {
               child: const SizedBox.expand(),
             ),
 
-          // Translucent or accessibility-opaque backing
+          // 2. Base translucent tint color
+          if (settings.tintOpacity > 0.0)
+            ColoredBox(
+              color: settings.effectiveTintColor,
+            ),
+
+          // 3. Accessibility / high-contrast backing
           if (effectiveBackingOpacity > 0.0)
             ColoredBox(
               color: settings.tintColor.withValues(
                 alpha: effectiveBackingOpacity,
               ),
-              child: const SizedBox.expand(),
             ),
 
           ?child,
         ],
       ),
     );
-
-    return current;
   }
 }
