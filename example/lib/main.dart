@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_container/core/widgets/liquid_glass/liquid_glass_example.dart';
 import 'package:liquid_glass_container/liquid_glass_container.dart';
 
 void main() async {
@@ -213,6 +214,13 @@ class _ShowcaseHomeScreenState extends State<ShowcaseHomeScreen>
             ),
             onPressed: () =>
                 setState(() => _showDiagnostics = !_showDiagnostics),
+          ),
+          IconButton(
+            tooltip: 'Open iOS Control Center Showcase',
+            icon: const Icon(Icons.apple, color: Colors.white),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LiquidGlassExample()),
+            ),
           ),
           IconButton(
             tooltip: 'Toggle Light/Dark Theme',
